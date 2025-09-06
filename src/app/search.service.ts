@@ -1,8 +1,13 @@
+// src/app/search.service.ts
 import { Injectable } from '@angular/core';
 import { Router } from '@angular/router';
-import { DataStoreService } from './layout/connections/data-store.service';
-import { ConnectionService } from './layout/connections/connection.service';
-import { Observable, of, map } from 'rxjs';
+import {
+  ConnectionService,
+  StoredStudent,
+  StoredTeacher,
+  Connection,
+} from './layout/connections/connection.service';
+import { Observable, of, forkJoin, map } from 'rxjs';
 
 export interface SearchResult {
   type: 'student' | 'teacher' | 'connection' | 'page';
@@ -26,7 +31,6 @@ export class SearchService {
   ];
 
   constructor(
-    private store: DataStoreService,
     private connectionService: ConnectionService,
     private router: Router
   ) {}
@@ -43,9 +47,12 @@ export class SearchService {
     const term = query.toLowerCase().trim();
     let results: SearchResult[] = [];
 
-    // صفحات
+    // 🟢 صفحات
     this.allPages.forEach(page => {
-      if (page.title.toLowerCase().includes(term) || page.description.toLowerCase().includes(term)) {
+      if (
+        page.title.toLowerCase().includes(term) ||
+        page.description.toLowerCase().includes(term)
+      ) {
         const highlightedPage = { ...page };
         highlightedPage.highlightedTitle = this.highlightText(page.title, term);
         highlightedPage.highlightedDescription = this.highlightText(page.description, term);
@@ -53,57 +60,58 @@ export class SearchService {
       }
     });
 
-    // طلبة
-    this.store.getStudents().forEach(student => {
-      if (
-        student.name.toLowerCase().includes(term) ||
-        student.email.toLowerCase().includes(term) ||
-        student.grade.toLowerCase().includes(term) ||
-        (student.phone && student.phone.toLowerCase().includes(term))
-      ) {
-        const result: SearchResult = {
-          type: 'student',
-          id: student.id,
-          title: student.name,
-          description: `Student - Grade ${student.grade}`,
-          route: '/student',
-          icon: '<svg ...></svg>',
-        };
-        result.highlightedTitle = this.highlightText(student.name, term);
-        result.highlightedDescription = this.highlightText(`Student - Grade ${student.grade}`, term);
-        results.push(result);
-      }
-    });
+    // 🟢 حملنا الطلاب + المدرسين + الـ connections من الـ service
+    return forkJoin({
+      students: this.connectionService.getStudents(),
+      teachers: this.connectionService.getTeachers(),
+      connections: this.connectionService.getAllConnections(),
+    }).pipe(
+      map(({ students, teachers, connections }) => {
+        // 🔹 الطلبة
+        students.forEach((student: StoredStudent) => {
+          if (
+            student.name.toLowerCase().includes(term) ||
+            student.email.toLowerCase().includes(term) ||
+            (student.phone && student.phone.toLowerCase().includes(term))
+          ) {
+            const result: SearchResult = {
+              type: 'student',
+              id: student.id,
+              title: student.name,
+              description: `Student - Grade`,
+              route: '/student',
+              icon: '<svg ...></svg>',
+            };
+            result.highlightedTitle = this.highlightText(student.name, term);
+            result.highlightedDescription = this.highlightText(`Student - Grade `, term);
+            results.push(result);
+          }
+        });
 
-    // مدرسين
-    this.store.getTeachers().forEach(teacher => {
-      if (
-        teacher.name.toLowerCase().includes(term) ||
-        teacher.email.toLowerCase().includes(term) ||
-        teacher.subject.toLowerCase().includes(term) ||
-        teacher.phone.toLowerCase().includes(term)
-      ) {
-        const result: SearchResult = {
-          type: 'teacher',
-          id: teacher.id,
-          title: teacher.name,
-          description: `Teacher - ${teacher.subject}`,
-          route: '/teacher',
-          icon: '<svg ...></svg>',
-        };
-        result.highlightedTitle = this.highlightText(teacher.name, term);
-        result.highlightedDescription = this.highlightText(`Teacher - ${teacher.subject}`, term);
-        results.push(result);
-      }
-    });
+        // 🔹 المدرسين
+        teachers.forEach((teacher: StoredTeacher) => {
+          if (
+            teacher.name.toLowerCase().includes(term) ||
+            teacher.email.toLowerCase().includes(term) ||
+            teacher.subject.toLowerCase().includes(term) ||
+            teacher.phone?.toLowerCase().includes(term)
+          ) {
+            const result: SearchResult = {
+              type: 'teacher',
+              id: teacher.id,
+              title: teacher.name,
+              description: `Teacher - ${teacher.subject}`,
+              route: '/teacher',
+              icon: '<svg ...></svg>',
+            };
+            result.highlightedTitle = this.highlightText(teacher.name, term);
+            result.highlightedDescription = this.highlightText(`Teacher - ${teacher.subject}`, term);
+            results.push(result);
+          }
+        });
 
-    // Connections (Async)
-    return this.connectionService.getAllConnections().pipe(
-      map(connections => {
-        const students = this.store.getStudents();
-        const teachers = this.store.getTeachers();
-
-        connections.forEach(connection => {
+        // 🔹 العلاقات (Connections)
+        connections.forEach((connection: Connection) => {
           const student = students.find(s => s.id === connection.studentId);
           const teacher = teachers.find(t => t.id === connection.teacherId);
 

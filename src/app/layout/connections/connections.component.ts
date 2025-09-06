@@ -2,12 +2,7 @@
 import { Component, OnInit, computed, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
-import {
-  DataStoreService,
-  StoredStudent,
-  StoredTeacher,
-} from './data-store.service';
-import { ConnectionService, Connection } from './connection.service';
+import { ConnectionService, Connection, StoredStudent, StoredTeacher } from './connection.service';
 import { Observable, of } from 'rxjs';
 
 @Component({
@@ -25,7 +20,6 @@ export class ConnectionsComponent implements OnInit {
   teacherSearch = signal<string>('');
   mode = signal<'assign' | 'manage'>('assign');
 
-  // observable connections for the selected student
   connectionsByStudent$!: Observable<Connection[]>;
 
   filteredTeachers = computed(() => {
@@ -42,37 +36,34 @@ export class ConnectionsComponent implements OnInit {
     return this.filteredTeachers();
   }
 
-  constructor(
-    private store: DataStoreService,
-    public connections: ConnectionService
-  ) {}
+  constructor(public connections: ConnectionService) {}
 
   ngOnInit(): void {
-    this.students = this.store.getStudents();
-    this.teachers = this.store.getTeachers();
+    // نجيب الطلاب
+    this.connections.getStudents().subscribe((students) => {
+      this.students = students;
+    });
+
+    // نجيب المدرسين
+    this.connections.getTeachers().subscribe((teachers) => {
+      this.teachers = teachers;
+    });
   }
 
-  // call this when student changes
   onStudentChange(studentId: number | null) {
     this.selectedStudentId.set(studentId);
     if (studentId !== null) {
-      this.connectionsByStudent$ =
-        this.connections.getConnectionsByStudent(studentId);
+      this.connectionsByStudent$ = this.connections.getConnectionsByStudent(studentId);
     } else {
       this.connectionsByStudent$ = of([]);
     }
   }
 
-  // check if teacher assigned using async pipe in template
   isTeacherAssigned(teacherId: number, connections: Connection[]): boolean {
     return connections.some((c) => c.teacherId === teacherId);
   }
 
-  toggleAssignment(
-    teacherId: number,
-    checked: boolean,
-    connections: Connection[]
-  ) {
+  toggleAssignment(teacherId: number, checked: boolean, connections: Connection[]) {
     const studentId = this.selectedStudentId();
     if (studentId === null) return;
 

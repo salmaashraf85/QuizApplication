@@ -17,7 +17,11 @@ export class AuthService {
 
   constructor(private http: HttpClient) {
     const savedToken = localStorage.getItem('token');
-    const savedRole = localStorage.getItem('role') as 'ROLE_STUDENT' | 'ROLE_TEACHER' | 'ROLE_ADMIN' | null;
+    const savedRole = localStorage.getItem('role') as
+      | 'ROLE_STUDENT'
+      | 'ROLE_TEACHER'
+      | 'ROLE_ADMIN'
+      | null;
 
     this.loggedIn = !!savedToken;
     this.role = savedRole;
@@ -38,15 +42,17 @@ export class AuthService {
 
   // 🆕 login بيرجع LoginResponse بدل any
   login(username: string, password: string): Observable<LoginResponse> {
-    return this.http.post<LoginResponse>(`${this.baseUrl}/login`, { username, password }).pipe(
-      tap((res) => {
-        localStorage.setItem('token', res.token);
-        localStorage.setItem('role', res.role);
+    return this.http
+      .post<LoginResponse>(`${this.baseUrl}/login`, { username, password })
+      .pipe(
+        tap((res) => {
+          localStorage.setItem('token', res.token);
+          localStorage.setItem('role', res.role);
 
-        this.loggedIn = true;
-        this.role = res.role;
-      })
-    );
+          this.loggedIn = true;
+          this.role = res.role;
+        })
+      );
   }
 
   logout() {

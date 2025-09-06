@@ -1,13 +1,13 @@
-// relashion-map.component.ts
+// src/app/layout/relashion-map/relashion-map.component.ts
 import { Component, OnInit, computed, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import {
-  DataStoreService,
+  ConnectionService,
+  Connection,
   StoredStudent,
   StoredTeacher,
-} from '../connections/data-store.service';
-import { ConnectionService, Connection } from '../connections/connection.service';
+} from '../connections/connection.service';
 
 @Component({
   selector: 'app-relashion-map',
@@ -19,27 +19,31 @@ import { ConnectionService, Connection } from '../connections/connection.service
 export class RelashionMapComponent implements OnInit {
   students: StoredStudent[] = [];
   teachers: StoredTeacher[] = [];
-  connections: Connection[] = [];   // هنا نخزن نسخة من الـ connections
+  connections: Connection[] = []; // نخزن نسخة من الـ connections
 
   viewMode = signal<'all' | 'by-student' | 'by-teacher'>('all');
   search = signal<string>('');
 
-  constructor(
-    private store: DataStoreService,
-    private connectionService: ConnectionService
-  ) {}
+  constructor(private connectionService: ConnectionService) {}
 
   ngOnInit(): void {
-    this.students = this.store.getStudents();
-    this.teachers = this.store.getTeachers();
+    // 🟢 تحميل الطلاب
+    this.connectionService.getStudents().subscribe((students) => {
+      this.students = students;
+    });
 
-    // تحميل كل الـ connections من السيرفر مرّة واحدة
+    // 🟢 تحميل المدرسين
+    this.connectionService.getTeachers().subscribe((teachers) => {
+      this.teachers = teachers;
+    });
+
+    // 🟢 تحميل كل الـ connections
     this.connectionService.getAllConnections().subscribe((conns) => {
       this.connections = conns;
     });
   }
 
-  // Derived data
+  // الطلاب مع المدرسين المرتبطين بيهم
   readonly studentWithAssignments = computed(() => {
     const term = this.search().toLowerCase().trim();
     return this.students
@@ -58,6 +62,7 @@ export class RelashionMapComponent implements OnInit {
       });
   });
 
+  // المدرسين مع الطلاب المرتبطين بيهم
   readonly teacherWithAssignments = computed(() => {
     const term = this.search().toLowerCase().trim();
     return this.teachers

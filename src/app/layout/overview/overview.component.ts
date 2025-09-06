@@ -39,28 +39,28 @@ export class OverviewComponent implements OnInit {
   }
 
   updateStats(): void {
-    this.connections.getAllConnections().subscribe((connections: Connection[]) => {
-      this.assignmentsCount = connections.length;
+  // اجمع الـstudents
+  this.connections.getStudents().subscribe((students) => {
+    this.studentsCount = students.length;
+  });
 
-      // Unique students
-      const studentSet = new Set<number>();
-      // Unique teachers
-      const teacherSet = new Set<number>();
-      // Unique relationships
-      const relationshipSet = new Set<string>();
+  // اجمع الـteachers
+  this.connections.getTeachers().subscribe((teachers) => {
+    this.teachersCount = teachers.length;
+  });
 
-      connections.forEach((conn) => {
-        studentSet.add(conn.studentId);
-        teacherSet.add(conn.teacherId);
-        relationshipSet.add(`${conn.studentId}-${conn.teacherId}`);
-      });
+  // اجمع الـconnections
+  this.connections.getAllConnections().subscribe((connections: Connection[]) => {
+    this.assignmentsCount = connections.length;
 
-      this.studentsCount = studentSet.size;
-      this.teachersCount = teacherSet.size;
-      this.relationshipsCount = relationshipSet.size;
+    // Unique relationships فقط
+    const relationshipSet = new Set<string>();
+    connections.forEach((conn) => {
+      relationshipSet.add(`${conn.studentId}-${conn.teacherId}`);
     });
-  }
-
+    this.relationshipsCount = relationshipSet.size;
+  });
+}
   calculatePercentageChange(current: number, previous: number): number {
     if (previous === 0) return 0;
     return Math.round(((current - previous) / previous) * 100);
